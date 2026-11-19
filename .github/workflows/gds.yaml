@@ -13,6 +13,67 @@ jobs:
         with:
           submodules: recursive
 
+      # Use the same GF180 PDK revision as tt-gds-action so Magic can generate
+      # a LEF-based abstract view for the hard SRAM macro before hardening.
+      - name: Install GF180 PDK
+        uses: TinyTapeout/ciel-action@v1
+        with:
+          pdk_name: gf180mcu
+          pdk_version: 54435919abffb937387ec956209f9cf5fd2dfbee
+          pdk_root: /home/runner/.ciel
+
+      - name: Build compatible Magic
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y build-essential m4 tcsh tcl-dev tk-dev wget
+          wget -q https://opencircuitdesign.com/~tim/programs/magic/archive/magic-8.3.685.tgz -O /tmp/magic-8.3.685.tgz
+          tar -xzf /tmp/magic-8.3.685.tgz -C /tmp
+          cd /tmp/magic-8.3.685
+          CFLAGS="-std=gnu99 -Wno-deprecated-non-prototype -Wno-implicit-function-declaration -Wno-parentheses -Wno-macro-redefined" ./configure --prefix=/usr/local --with-tcl --without-x
+          make -j2
+          sudo make install
+
+      - name: Generate SRAM Magic abstract view
+        env:
+          PDK_ROOT: /home/runner/.ciel
+          PDK_VERSION: 54435919abffb937387ec956209f9cf5fd2dfbee
+        run: |
+          set -euo pipefail
+          CELL=gf180mcu_fd_ip_sram__sram512x8m8wm1
+          PDK_DIR="$PDK_ROOT/ciel/gf180mcu/versions/$PDK_VERSION/gf180mcuD"
+          MAGICRC="$PDK_DIR/libs.tech/magic/gf180mcuD.magicrc"
+          LEF="src/gf180mcu_fd_ip_sram/cells/$CELL/$CELL.lef"
+          OUT="src/macros/maglef/$CELL.mag"
+
+          test -f "$MAGICRC"
+          test -f "$LEF"
+          mkdir -p "$(dirname "$OUT")"
+
+          # Import the vendor LEF into Magic's abstract-view database. This
+          # creates the cell view used by MAGIC_DRC_MAGLEFS; it does not alter
+          # the vendor GDS that is streamed into the final design.
+          export MAGTYPE=maglef
+          magic -dnull -noconsole -rcfile "$MAGICRC" <<EOF
+          drc off
+          lef read $LEF
+          load $CELL
+          save $OUT
+          quit -noprompt
+          EOF
+
+          test -s "$OUT"
+          grep -q '^magic$' "$OUT"
+          grep -q '<< end >>' "$OUT"
+          echo "Generated $OUT"
+          sed -n '1,24p' "$OUT"
+
+      - name: Install GDS editing dependency
+        run: python3 -m pip install gdstk --break-system-packages
+
+      - name: Normalize official SRAM GDS hierarchy
+        run: python3 .github/scripts/normalize_sram_gds.py
+
       - name: Build GDS
         uses: TinyTapeout/tt-gds-action@ttgf26c
         with:
@@ -41,7 +102,44 @@ jobs:
     needs: gds
     runs-on: ubuntu-24.04
     permissions:
-      pages: write      # to deploy to Pages
-      id-token: write   # to verify the deployment originates from an appropriate source
+      contents: read
+      pages: write
+      id-token: write
     steps:
-      - uses: TinyTapeout/tt-gds-action/viewer@ttgf26c
+      # Pages must be enabled with "GitHub Actions" as the publishing source.
+      # Skip deployment cleanly until that one-time repository setting is made.
+      - name: Check GitHub Pages configuration
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/pages" --jq '.build_type' 2>/dev/null | grep -qx workflow; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish 2D preview and interactive 3D viewer
+        if: steps.pages.outputs.enabled == 'true'
+        uses: TinyTapeout/tt-gds-action/viewer@ttgf26c
+
+      - name: Explain GitHub Pages setup
+        if: steps.pages.outputs.enabled != 'true'
+        shell: bash
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ## Viewer deployment skipped
+
+          The GDS build produced the KLayout PNG and OASIS file, but this
+          repository has not enabled GitHub Pages with **GitHub Actions** as
+          its publishing source.
+
+          Enable it in **Settings → Pages → Build and deployment → Source**:
+          choose **GitHub Actions**. Then run this workflow again using
+          **Run workflow**. The viewer job will publish the 2D preview and
+          interactive 3D viewer, plus a Tiny Tapeout Explorer link.
+
+          Until then, the `gds_render` and `tt_submission` artifacts contain
+          the PNG preview and GDS/OASIS submission files.
+          EOF

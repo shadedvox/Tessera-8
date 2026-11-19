@@ -1,0 +1,3 @@
+[submodule "src/gf180mcu_fd_ip_sram"]
+	path = src/gf180mcu_fd_ip_sram
+	url = https://github.com/google/globalfoundries-pdk-ip-gf180mcu_fd_ip_sram.git
