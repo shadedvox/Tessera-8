@@ -19,6 +19,7 @@ FIXED = {
     "ADD": (0x20, 1, None),  "SUB": (0x21, 1, None),  "AND": (0x22, 1, None),
     "OR":  (0x23, 1, None),  "XOR": (0x24, 1, None),  "CMP": (0x25, 1, None),
     "ADDI": (0x28, 2, "imm8"), "CMPI": (0x29, 2, "imm8"),
+    "ADC": (0x26, 1, None),  "SBC": (0x27, 1, None),
     # operations on A
     "INC_A": (0x30, 1, None), "DEC_A": (0x31, 1, None), "NOT_A": (0x32, 1, None),
     "SHL_A": (0x33, 1, None), "SHR_A": (0x34, 1, None),
