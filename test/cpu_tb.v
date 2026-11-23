@@ -11,7 +11,10 @@ module cpu_tb;
     always #5 clk = ~clk;
     reg [7:0] mem [0:65535];
     always @(posedge clk) begin
-        if (wdr) mem[addr] <= wd;
+        if (wdr) begin
+            mem[addr] <= wd;
+            if (addr == 16'hFF00) $write("%c", wd);
+        end
         if (rdr) rd <= mem[addr];
     end
 
@@ -30,7 +33,7 @@ module cpu_tb;
         end
 
         $readmemh(fname, mem);
-
+        mem[16'hFF01] = 8'h01;
         rstn = 0;
         repeat (4) @(posedge clk);
         #1 rstn = 1;
@@ -41,8 +44,7 @@ module cpu_tb;
             timeout = timeout + 1;
         end
         if (!halt) $display("TIMEOUT: the CPU never halted");
-
-        $display("A=%h B=%h H=%h L=%h  SP=%h PC=%h  Z=%b C=%b N=%b V=%b", dut.ra, dut.rb, dut.rh, dut.rl, dut.sp, dut.pc, dut.fz, dut.fc, dut.fn, dut.fv);
+        $display("A = %h == %d | B = %h == %d | H = %h == %d | L = %h == %d | SP= %h == %d | PC = %h == %d \n Z=%b | C=%b | N=%b | V=%b", dut.ra, dut.ra, dut.rb, dut.rb, dut.rh, dut.rh, dut.rl, dut.rl, dut.sp, dut.sp, dut.pc, dut.pc, dut.fz, dut.fc, dut.fn, dut.fv);
         $display("mem[0100]=%h mem[0101]=%h mem[01FE]=%h mem[01FF]=%h", mem[16'h0100], mem[16'h0101], mem[16'h01FE], mem[16'h01FF]);
         $finish;
     end

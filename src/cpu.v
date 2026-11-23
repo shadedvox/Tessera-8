@@ -4,7 +4,7 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
     localparam [7:0] OP_NOP = 8'h00, OP_HLT = 8'h01, OP_ADD = 8'h20, OP_SUB = 8'h21, OP_AND = 8'h22, OP_OR = 8'h23, OP_XOR = 8'h24, OP_CMP = 8'h25, OP_ADDI = 8'h28, OP_CMPI = 8'h29, OP_ADC = 8'h26, OP_SBC = 8'h27, OP_INC_A = 8'h30, OP_DEC_A = 8'h31, OP_NOT_A = 8'h32, OP_SHL_A = 8'h33, OP_SHR_A = 8'h34, OP_NEG_A = 8'h35, OP_SAR_A = 8'h36, OP_MUL = 8'h38, OP_DIV = 8'h39, OP_LD_ABS = 8'h50, OP_ST_ABS = 8'h51, OP_LD_HL = 8'h52, OP_ST_HL = 8'h53, OP_INC_HL = 8'h54, OP_DEC_HL = 8'h55, OP_PUSH_A = 8'h58, OP_POP_A = 8'h59, OP_CALL = 8'h5A, OP_RET = 8'h5B, OP_JMP = 8'h60, OP_JZ = 8'h61, OP_JNZ = 8'h62, OP_JC = 8'h63, OP_JNC = 8'h64, OP_JLT = 8'h65, OP_JGE = 8'h66, OP_LDI_BASE = 8'h10, OP_MOV_BASE = 8'h40;
         
     // STATES
-    localparam [4:0] F0 = 5'd0, F1 = 5'd1, DCD = 5'd2, OP10 = 5'd3, OP11 = 5'd4, OP20 = 5'd5, OP21 = 5'd6, IMME = 5'd7, LD0 = 5'd8, LD1 = 5'd9, ST0 = 5'd10, PUSH = 5'd11, POP = 5'd12, CL0 = 5'd13, CL1 = 5'd14, CL2 = 5'd15, RET0 = 5'd16, RET1 = 5'd17, RET2 = 5'd18, RET3 = 5'd19, RET4 = 5'd20, RET5 = 5'd21, RET6 = 5'd22, JUMP = 5'd23, MDST = 5'd24, MDWT = 5'd25, MDWB = 5'd26, HALT = 5'd27;
+    localparam [4:0] F0 = 5'd0, F1 = 5'd1, DCD = 5'd2, OP10 = 5'd3, OP11 = 5'd4, OP20 = 5'd5, OP21 = 5'd6, IMME = 5'd7, LD0 = 5'd8, LD1 = 5'd9, ST0 = 5'd10, PUSH = 5'd11, POP = 5'd12, CL0 = 5'd13, CL1 = 5'd14, CL2 = 5'd15, RET0 = 5'd16, RET1 = 5'd17, RET2 = 5'd18, RET3 = 5'd19, RET4 = 5'd20, RET5 = 5'd21, JUMP = 5'd22, MDST = 5'd23, MDWT = 5'd24, MDWB = 5'd25, MSG1 = 5'd26, MSG2 = 5'd27, MSG3 = 5'd28, HALT = 5'd29;
 
     // ALU OP
     localparam [3:0] ADD = 4'd0, SUB = 4'd1, AND = 4'd2, OR = 4'd3, XOR = 4'd4, NOT = 4'd5, SHL = 4'd6, SHR = 4'd7, SAR = 4'd8, NEG = 4'd9, INC = 4'd10, DEC = 4'd11, ADCI = 4'd12, SBCI = 4'd13;
@@ -14,6 +14,8 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
     reg [15:0] pc, sp;
     reg fc, fz, fn, fv;
     reg [4:0] s;
+    reg [3:0] msg_idx;
+    reg [7:0] msg;
 
     wire [7:0] alu_res, div_q, div_r;
     reg [7:0] alu_b;
@@ -42,6 +44,7 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
             fz <= 1'b0;
             fn <= 1'b0;
             fv <= 1'b0;
+            msg_idx <= 4'b0;
         end
         else begin
             case (s)
@@ -198,7 +201,7 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
                 end 
                 ST0 : s <= F0;
                 PUSH : s <= F0;
-                POP : s <= RET6;
+                POP : s <= RET5;
                 RET0 : begin
                     s <= RET1;
                 end
@@ -219,7 +222,7 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
                     pc <= {th, tl};
                     s <= F0;
                 end 
-                RET6 : begin
+                RET5 : begin
                     sp <= sp + 16'd1;
                     ra <= rd;
                     s <= F0;
@@ -231,9 +234,26 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
                     rh <= (ir == OP_MUL) ? mul_res[15:8] : div_r;
                     fz <= (ir == OP_MUL) ? (mul_res == 16'd0) : (div_q == 8'd0);
                     fn <= (ir == OP_MUL) ? (mul_res[15]) : (div_q[7]);
-                    fc <= (ir == OP_MUL) ? (mul_res[15:8] != 8'd0) : (div_q == 8'd255 && div_r == rb);
+                    fc <= (ir == OP_MUL) ? (mul_res[15:8] != 8'd0) : (rb == 8'd0);
                     fv <= 1'b0;
-                    s <= F0;
+                    if ((ir == OP_DIV) && (rb == 8'd0)) begin
+                        msg_idx <= 4'd0;
+                        s <= MSG1;
+                    end
+                    else s <= F0;
+                end
+                MSG1 : s <= MSG2;
+                MSG2 : begin
+                    if (rd[0]) s <= MSG3;
+                    else s <= MSG1;
+                end
+                MSG3 : begin
+                    if (msg_idx == 4'd8) begin
+                        s <= F0;
+                    end else begin
+                        msg_idx <= msg_idx + 4'd1;
+                        s <= MSG1;
+                    end
                 end
                 IMME : begin
                     if (ir[7:2] == 6'b000100) begin
@@ -300,7 +320,18 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
                 addr = sp;
                 wd = pc[7:0];
             end
-            default : addr = 16'h0000;
+            MSG1 : begin
+                addr = 16'hFF01;
+                rdr = 1'b1;
+            end
+            MSG2 : begin
+                if (rd[0]) begin
+                    addr = 16'hFF00;
+                    wd = msg;
+                    wdr = 1'b1;
+                end
+            end
+            default : addr = 16'h0;
         endcase
         case (ir)
             OP_ADD, OP_ADDI : alu_op = ADD;
@@ -319,11 +350,27 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
             OP_NEG_A : alu_op = NEG;
             default : alu_op = AND;
         endcase
+        case (msg_idx)
+            4'd0 : msg = 8'h64;
+            4'd1 : msg = 8'h75;
+            4'd2 : msg = 8'h6D;
+            4'd3 : msg = 8'h62;
+            4'd4 : msg = 8'h61;
+            4'd5 : msg = 8'h73;
+            4'd6 : msg = 8'h73;
+            4'd7 : msg = 8'h0D;
+            4'd8 : msg = 8'h0A;
+            default: msg = 8'h00;
+        endcase
         mul_cmd = (s == MDST) && (ir == OP_MUL);
         div_cmd = (s == MDST) && (ir == OP_DIV);
     end
 
     assign halt = (s == HALT);
-    wire _unused = &{1'b0, OP_LDI_BASE, OP_MOV_BASE, RET5, OP_NOP};
+    wire _unused = &{1'b0, OP_LDI_BASE, OP_MOV_BASE, OP_NOP};
 endmodule
 `default_nettype wire
+
+// python3 tools/asm.py tools/prog.asm test/p.hex
+// iverilog -g2012 -o test/sim_build/cpu.vvp src/cpu.v src/alu.v src/mul8.v src/div8.v test/cpu_tb.v
+// vvp test/sim_build/cpu.vvp +prog=test/p.hex

@@ -1,0 +1,4 @@
+LDI A, 42
+LDI B, 0
+MUL
+HLT
