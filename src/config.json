@@ -46,7 +46,7 @@
         ]
       },
       "instances": {
-        "u_sram": {
+        "sr.u_sram": {
           "location": [
             140,
             45
@@ -59,7 +59,7 @@
   "PDN_CONNECT_MACROS_TO_GRID": true,
   "PDN_ENABLE_GLOBAL_CONNECTIONS": true,
   "PDN_MACRO_CONNECTIONS": [
-    "u_sram VPWR VGND VDD VSS"
+    "sr.u_sram VPWR VGND VDD VSS"
   ],
   "PDN_CFG": "dir::pdn_cfg.tcl",
   "meta": {
