@@ -1,0 +1,91 @@
+================================================================================
+TESSERA-8 INSTRUCTION SET ARCHITECTURE (ISA) & SYSTEM CONSTANTS
+================================================================================
+
+1. REGISTERS
+--------------------------------------------------------------------------------
+A : 0 (0b00)
+B : 1 (0b01)
+H : 2 (0b10)
+L : 3 (0b11)
+
+2. SYSTEM & MEMORY-MAPPED I/O CONSTANTS
+--------------------------------------------------------------------------------
+PC_RESET    : 0x0000
+SP_RESET    : 0x01FF
+SRAM_END    : 0x01FF
+UART_DATA   : 0xFF00
+UART_STATUS : 0xFF01
+GPIO_OUT    : 0xFF02
+GPIO_IN     : 0xFF03
+CYCLES_LO   : 0xFF04
+CYCLES_HI   : 0xFF05
+
+3. VARIABLE-REGISTER ENCODINGS
+--------------------------------------------------------------------------------
+LDI_BASE : 0x10
+  Format : LDI r, imm8  -> opcode = 0x10 + r (0x10 - 0x13), Length: 2 bytes, Operand: imm8
+
+MOV_BASE : 0x40
+  Format : MOV rd, rs   -> opcode = 0x40 + (rd * 4) + rs (0x40 - 0x4F), Length: 1 byte, Operand: None
+
+4. FIXED OPCODES
+--------------------------------------------------------------------------------
+Operand Types:
+  None  : 1-byte instruction (opcode only)
+  imm8  : 2-byte instruction (opcode + 1 immediate byte)
+  abs16 : 3-byte instruction (opcode + 2 address bytes, little-endian)
+
+MNEMONIC    OPCODE    LENGTH    OPERAND
+--------    ------    ------    -------
+# System
+NOP         0x00      1         None
+HLT         0x01      1         None
+
+# ALU
+ADD         0x20      1         None
+SUB         0x21      1         None
+AND         0x22      1         None
+OR          0x23      1         None
+XOR         0x24      1         None
+CMP         0x25      1         None
+ADC         0x26      1         None
+SBC         0x27      1         None
+ADDI        0x28      2         imm8
+CMPI        0x29      2         imm8
+
+# Unary Operations on A
+INC_A       0x30      1         None
+DEC_A       0x31      1         None
+NOT_A       0x32      1         None
+SHL_A       0x33      1         None
+SHR_A       0x34      1         None
+NEG_A       0x35      1         None
+SAR_A       0x36      1         None
+
+# Multiply / Divide
+MUL         0x38      1         None
+DIV         0x39      1         None
+
+# Memory
+LD_ABS      0x50      3         abs16
+ST_ABS      0x51      3         abs16
+LD_HL       0x52      1         None
+ST_HL       0x53      1         None
+INC_HL      0x54      1         None
+DEC_HL      0x55      1         None
+
+# Stack & Subroutines
+PUSH_A      0x58      1         None
+POP_A       0x59      1         None
+CALL        0x5A      3         abs16
+RET         0x5B      1         None
+
+# Jumps
+JMP         0x60      3         abs16
+JZ          0x61      3         abs16
+JNZ         0x62      3         abs16
+JC          0x63      3         abs16
+JNC         0x64      3         abs16
+JLT         0x65      3         abs16
+JGE         0x66      3         abs16
