@@ -120,10 +120,7 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
                             {rh, rl} <= {rh, rl} - 16'd1;
                             s <= F0;
                         end
-                        OP_PUSH_A : begin
-                            sp <= sp - 16'd1;
-                            s <= PUSH;
-                        end
+                        OP_PUSH_A : s <= PUSH;
                         OP_POP_A : s <= POP;
                         OP_CALL : s <= OP10;
                         OP_RET : s <= RET0;
@@ -200,7 +197,10 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
                     s <= F0;
                 end 
                 ST0 : s <= F0;
-                PUSH : s <= F0;
+                PUSH : begin
+                    sp <= sp - 16'd1;
+                    s <= F0;
+                end
                 POP : s <= RET5;
                 RET0 : begin
                     s <= RET1;
@@ -244,7 +244,7 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
                 end
                 MSG1 : s <= MSG2;
                 MSG2 : begin
-                    if (rd[0]) s <= MSG3;
+                    if (rd[1]) s <= MSG3;
                     else s <= MSG1;
                 end
                 MSG3 : begin
@@ -325,7 +325,7 @@ module cpu ( input clk , input rstn , input wire [15:0] rstvec , input [7:0] rd 
                 rdr = 1'b1;
             end
             MSG2 : begin
-                if (rd[0]) begin
+                if (rd[1]) begin
                     addr = 16'hFF00;
                     wd = msg;
                     wdr = 1'b1;

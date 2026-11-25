@@ -89,15 +89,3 @@ JC          0x63      3         abs16
 JNC         0x64      3         abs16
 JLT         0x65      3         abs16
 JGE         0x66      3         abs16
-
-5. STACK CONVENTION (FULL DESCENDING)
---------------------------------------------------------------------------------
-Model      : Full Descending Stack (SP points to the top occupied byte)
-Reset      : SP_RESET = 0x01FF (empty sentinel; never written by stack ops)
-Usable RAM : 0x01FE down to 0x0000 (first pushed byte lands at 0x01FE)
-
-Operations:
-  PUSH_A (0x58) : SP <- SP - 1; MEM[SP] <- A
-  POP_A  (0x59) : A <- MEM[SP]; SP <- SP + 1
-  CALL   (0x5A) : Pre-decrements SP and pushes 2-byte return address; PC <- abs16
-  RET    (0x5B) : Pops 2-byte return address into PC and post-increments SP
